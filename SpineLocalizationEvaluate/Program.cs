@@ -6,21 +6,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-// Given a directory for reference data and a submission data, where the reference data is structured as:
-// Root Directory \ (reference, or submission_001, etc)
-//                  testing \
-//                            images \ (files in here)
-//                            labels \ (files to evaluate in here, labeled <id>.lml
-//                            ids.txt (a list of valid <id>'s)
-//                  training \
-//                            images \ (files in here)
-//                            labels \ (files to evaluate in here, labeled <id>.lml
-//                            ids.txt (a list of valid <id>'s)
-// and the submission data is a list of files in a directory that correspond to the labels\<files>.
-// This program will read the data and compute the score for the submission and output a scores.txt file 
-// with a set of key / value pairs for the score that can be consumed by CodaLab.
-//
-
 namespace SpineLocalizationEvaluate
 {
     public class Vertabrae
@@ -89,6 +74,7 @@ namespace SpineLocalizationEvaluate
             int NumberOfVertabrae = 26;
             String referenceDirectory = null;
             String submissionDirectory = null;
+            String outputDirectory = null;
             String line = null;
             List<String> ids = new List<String>();
             Dictionary<String, Vertabrae[]> reference = new Dictionary<String, Vertabrae[]>();
@@ -100,8 +86,9 @@ namespace SpineLocalizationEvaluate
             // Deal with arguments
             if (args.Length == 2)
             {
-                referenceDirectory = args[0];
-                submissionDirectory = args[1];
+                referenceDirectory = Path.Combine(args[0], "ref");
+                submissionDirectory = Path.Combine(args[0], "res");
+                outputDirectory = args[1];
             }
             else
             {
@@ -117,12 +104,6 @@ namespace SpineLocalizationEvaluate
             }
             else
             {
-                // There is no need to store the images in the reference data since we're just comparing labels.
-                if (!Directory.Exists(Path.Combine(referenceDirectory, "images")))
-                {
-                    Console.WriteLine("Reference directory structure is missing images directory.");
-                    Environment.Exit(1);
-                }
                 if (!Directory.Exists(Path.Combine(referenceDirectory, "labels")))
                 {
                     Console.WriteLine("Reference directory structure is missing labels directory.");
@@ -138,6 +119,12 @@ namespace SpineLocalizationEvaluate
             if (!Directory.Exists(submissionDirectory))
             {
                 Console.WriteLine("Reference directory does not exist.");
+                Environment.Exit(1);
+            }
+
+            if (!Directory.Exists(outputDirectory))
+            {
+                Console.WriteLine("Output directory does not exist.");
                 Environment.Exit(1);
             }
 
@@ -235,7 +222,7 @@ namespace SpineLocalizationEvaluate
                     results[idx, i, 4] = (reference[id][i] != null && submission[id][i] == null) ? 1 : 0; // False Negative
                 }
 
-                System.IO.StreamWriter sliceOut = new System.IO.StreamWriter(id + ".txt");
+                System.IO.StreamWriter sliceOut = new System.IO.StreamWriter(Path.Combine(outputDirectory, id + ".txt"));
                 for (int j = 0; j < 5; j++)
                 {
                     for (int k = 0; k < NumberOfVertabrae; k++)
@@ -317,33 +304,11 @@ namespace SpineLocalizationEvaluate
                     summary[i, 5] = 0.000M;
                 }
             }
-            System.IO.StreamWriter scoresOut = new System.IO.StreamWriter("scores.txt");
-            scoresOut.WriteLine("\t" + (meanError/errorsFound).ToString("0.000")); 
-            scoresOut.WriteLine("\t" + falsePositivesFound);
-            scoresOut.WriteLine("\t" + falseNegativesFound);
-            scoresOut.WriteLine(); 
-            for (int i = 0; i < NumberOfVertabrae; i++)
-            {
-                if (summary[i, 1] > 0)
-                {
-                    scoresOut.Write("\t" + (summary[i, 0] / summary[i, 1]).ToString("0.000"));
-                }
-                else
-                {
-                    scoresOut.Write("\t0.000");
-                }
-            }
-            scoresOut.WriteLine();
-            for (int i = 0; i < NumberOfVertabrae; i++)
-            {
-                scoresOut.Write("\t" + summary[i, 3]);
-            }
-            scoresOut.WriteLine(); 
-            for (int i = 0; i < NumberOfVertabrae; i++)
-            {
-                scoresOut.Write("\t" + summary[i, 4]);
-            }
-            scoresOut.WriteLine();
+            System.IO.StreamWriter scoresOut = new System.IO.StreamWriter(Path.Combine(outputDirectory, "scores.txt"));
+            Decimal errorReported = (meanError/errorsFound);
+            scoresOut.WriteLine("Mean Error: " + errorReported.ToString("0.000")); 
+            scoresOut.WriteLine("False Positives Found: " + falsePositivesFound);
+            scoresOut.WriteLine("False Negatives Found: " + falseNegativesFound);
             scoresOut.Close();
 
             Console.WriteLine("Finished evaluating submission.");
